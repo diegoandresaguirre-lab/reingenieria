@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Seguimiento a Planes y Subprocesos</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <style>
+    :root {
+      --primary-color: #1e3c72;
+      --secondary-color: #2a5298;
+      --bg-color: #f4f6f9;
+      --card-radius: 12px;
+    }
+
+    body { background-color: var(--bg-color); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; }
+    
+    /* Login Overlay */
+    #loginOverlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+      z-index: 99999;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .login-card {
+      background: #ffffff;
+      border-radius: var(--card-radius);
+      padding: 2.5rem; width: 100%; max-width: 420px;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.25);
+    }
+
+    .header-panel { 
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); 
+      color: white; padding: 2.2rem 0; margin-bottom: 2rem; 
+      border-radius: 0 0 20px 20px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); 
+    }
+    
+    .card { border: none; border-radius: var(--card-radius); box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
+    .card-stat { border-left: 5px solid var(--secondary-color); }
+    
+    .table-responsive { background: white; border-radius: var(--card-radius); padding: 1.25rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .text-truncate-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+    /* Agrupación Desplegable */
+    .tr-subproceso-header {
+      background-color: #e2e8f0 !important;
+      cursor: pointer; user-select: none; transition: background-color 0.2s ease;
+    }
+    .tr-subproceso-header:hover { background-color: #cbd5e1 !important; }
+    
+    /* Badges de clasificación */
+    .subproceso-badge {
+      font-size: 0.7rem; padding: 0.3em 0.6em; border-radius: 5px; font-weight: 700;
+      display: inline-block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .badge-proceso-general { background-color: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
+    .badge-subproceso { background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+    .badge-procedimiento { background-color: #fce7f3; color: #9d174d; border: 1px solid #fbcfe8; }
+    .badge-formato { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+
+    .activity-badge {
+      font-size: 0.73rem; padding: 0.25em 0.65em; border-radius: 5px; font-weight: 600; display: inline-block; margin-bottom: 4px;
+    }
+    .activity-status-completado { background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .activity-status-proceso { background-color: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+    .activity-status-pendiente { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+    .btn-action-custom { border-radius: 8px; font-weight: 600; transition: all 0.2s ease; }
+  </style>
+</head>
+<body class="overflow-hidden">
+
+  <!-- Modal / Pantalla de Autenticación de Usuario -->
+  <div id="loginOverlay">
+    <div class="login-card">
+      <div class="text-center mb-4">
+        <i class="bi bi-shield-lock-fill text-primary display-4"></i>
+        <h4 class="fw-bold mt-2 text-dark">Acceso al Sistema</h4>
+        <p class="text-muted small">Ingrese sus credenciales para continuar</p>
+      </div>
+      <form id="formLogin" onsubmit="validarAcceso(event)">
+        <div class="mb-3">
+          <label class="form-label fw-semibold text-secondary">Usuario</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
+            <input type="text" id="inputUsuario" class="form-control" placeholder="Ingrese usuario" required autocomplete="username">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold text-secondary">Contraseña</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
+            <input type="password" id="inputPassword" class="form-control" placeholder="Ingrese contraseña" required autocomplete="current-password">
+          </div>
+        </div>
+        <div id="alertLoginError" class="alert alert-danger d-none py-2 small" role="alert">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i> Usuario o contraseña incorrectos.
+        </div>
+        <button type="submit" class="btn btn-primary w-100 fw-bold py-2 mt-2 btn-action-custom">
+          <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Encabezado -->
+  <div class="header-panel">
+    <div class="container">
+      <div class="d-flex justify-content-between align-items-center flex-wrap">
+        <div>
+          <h2 class="fw-bold mb-1"><i class="bi bi-kanban me-2"></i>PLAN DETALLADO DE LA ACTUALIZACIÓN DEL SISTEMA DE GESTIÓN DE CALIDAD</h2>
+          <p class="mb-0 text-white-50">Control de Fechas, Programación, Responsables, Avances, Observaciones y Reportes Gerenciales</p>
+          <div class="mt-2 text-warning small fw-bold">
+            <i class="bi bi-person-circle me-1"></i> Usuario actual: <span id="lblUsuarioActivo">-</span> 
+            <span id="badgeRolUsuario" class="badge bg-light text-dark ms-2">Rol</span>
+          </div>
+        </div>
+        <div class="mt-3 mt-md-0 d-flex gap-2 flex-wrap">
+          <button class="btn btn-warning text-dark fw-bold shadow-sm btn-action-custom" onclick="abrirModalCrear()">
+            <i class="bi bi-plus-circle-fill me-1"></i> Nueva Actividad
+          </button>
+          <button class="btn btn-light text-dark fw-bold shadow-sm btn-action-custom" onclick="abrirModalAjustesInforme()">
+            <i class="bi bi-journal-text me-1"></i> Personalizar Informe
+          </button>
+          <button class="btn btn-light text-dark fw-bold shadow-sm btn-action-custom" onclick="generarInformeGerencial()">
+            <i class="bi bi-file-earmark-pdf-fill me-1 text-danger"></i> Generar Informe Gerencial
+          </button>
+          <button class="btn btn-dark text-white fw-bold shadow-sm solo-admin btn-action-custom" onclick="abrirModalUsuarios()">
+            <i class="bi bi-people-fill me-1"></i> Usuarios
+          </button>
+          <button class="btn btn-primary text-white fw-bold shadow-sm solo-admin btn-action-custom" onclick="abrirModalRegistroIngresos()">
+            <i class="bi bi-clock-history me-1"></i> Accesos
+          </button>
+          <button class="btn btn-info text-white shadow-sm btn-action-custom" onclick="generarCopiaSeguridad()">
+            <i class="bi bi-shield-lock-fill me-1"></i> Respaldar
+          </button>
+          <button class="btn btn-secondary text-white shadow-sm btn-action-custom" onclick="document.getElementById('inputRestaurarBackup').click()">
+            <i class="bi bi-upload me-1"></i> Restaurar
+          </button>
+          <input type="file" id="inputRestaurarBackup" accept=".json" style="display: none;" onchange="restaurarCopiaSeguridad(event)">
+          <button class="btn btn-success btn-action-custom" onclick="exportarCSV()">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i> Excel (CSV)
+          </button>
+          <button class="btn btn-danger shadow-sm btn-action-custom" onclick="cerrarSesion()">
+            <i class="bi bi-box-arrow-right me-1"></i> Salir
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid px-4 mb-5">
+    <!-- Indicadores Generales Superiores -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="card card-stat p-3" style="border-left-color: #1e3c72;">
+          <span class="text-muted small fw-bold">Total de actividades</span>
+          <h3 class="fw-bold mb-0 text-dark" id="totalActividades">0</h3>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card card-stat p-3" style="border-left-color: #ffc107;">
+          <span class="text-muted small fw-bold">En proceso (con porcentaje)</span>
+          <h3 class="fw-bold mb-0 text-warning" id="enProceso">0 (0%)</h3>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card card-stat p-3" style="border-left-color: #17a2b8;">
+          <span class="text-muted small fw-bold">Completadas (con porcentaje)</span>
+          <h3 class="fw-bold mb-0 text-info" id="completadas">0 (0%)</h3>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card card-stat p-3" style="border-left-color: #6c757d;">
+          <span class="text-muted small fw-bold">Pendientes / Sin iniciar</span>
+          <h3 class="fw-bold mb-0 text-secondary" id="pendientes">0 (0%)</h3>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filtros y Búsqueda -->
+    <div class="card p-3 mb-4">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label fw-bold"><i class="bi bi-funnel me-1"></i> Subproceso / Procedimiento:</label>
+          <select id="selectSubproceso" class="form-select" onchange="renderizarTabla()">
+            <option value="">-- Todos los Subprocesos --</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-bold"><i class="bi bi-pie-chart me-1"></i> Estado Cumplimiento:</label>
+          <select id="selectEstadoCumplimiento" class="form-select" onchange="renderizarTabla()">
+            <option value="">-- Todos --</option>
+            <option value="sin_iniciar">Sin iniciar (0%)</option>
+            <option value="en_proceso">En proceso (1% - 99%)</option>
+            <option value="completado">Completado (100%)</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-bold"><i class="bi bi-percent me-1"></i> Rango % Cumplimiento:</label>
+          <div class="input-group">
+            <input type="number" id="inputMinPorcentaje" class="form-control" placeholder="Mín" min="0" max="100" onkeyup="renderizarTabla()" onchange="renderizarTabla()">
+            <input type="number" id="inputMaxPorcentaje" class="form-control" placeholder="Máx" min="0" max="100" onkeyup="renderizarTabla()" onchange="renderizarTabla()">
+          </div>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-bold"><i class="bi bi-calendar-event me-1"></i> Mes Inicio / Fin:</label>
+          <div class="input-group">
+            <select id="selectMesInicio" class="form-select" onchange="renderizarTabla()">
+              <option value="">Inicio</option>
+              <option value="Enero">Enero</option>
+              <option value="Febrero">Febrero</option>
+              <option value="Marzo">Marzo</option>
+              <option value="Abril">Abril</option>
+              <option value="Mayo">Mayo</option>
+              <option value="Junio">Junio</option>
+              <option value="Julio">Julio</option>
+              <option value="Agosto">Agosto</option>
+              <option value="Septiembre">Septiembre</option>
+              <option value="Octubre">Octubre</option>
+              <option value="Noviembre">Noviembre</option>
+              <option value="Diciembre">Diciembre</option>
+            </select>
+            <select id="selectMesFin" class="form-select" onchange="renderizarTabla()">
+              <option value="">Fin</option>
+              <option value="Enero">Enero</option>
+              <option value="Febrero">Febrero</option>
+              <option value="Marzo">Marzo</option>
+              <option value="Abril">Abril</option>
+              <option value="Mayo">Mayo</option>
+              <option value="Junio">Junio</option>
+              <option value="Julio">Julio</option>
+              <option value="Agosto">Agosto</option>
+              <option value="Septiembre">Septiembre</option>
+              <option value="Octubre">Octubre</option>
+              <option value="Noviembre">Noviembre</option>
+              <option value="Diciembre">Diciembre</option>
+            </select>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-bold"><i class="bi bi-search me-1"></i> Buscar:</label>
+          <input type="text" id="inputBuscar" class="form-control" placeholder="Buscar actividad, responsable..." onkeyup="renderizarTabla()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Controles para Desplegar/Recoger Todos -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="small text-muted fw-bold">
+        <i class="bi bi-info-circle me-1"></i> Haga clic sobre el encabezado de un Subproceso para desplegar o contraer sus actividades.
+      </div>
+      <div>
+        <button class="btn btn-sm btn-outline-primary me-1" onclick="alternarTodosGrupos(true)">
+          <i class="bi bi-arrows-expand me-1"></i> Desplegar Todos
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="alternarTodosGrupos(false)">
+          <i class="bi bi-arrows-collapse me-1"></i> Recoger Todos
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabla Principal -->
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 2%;">#</th>
+            <th style="width: 18%;">Subproceso / Procedimiento</th>
+            <th style="width: 18%;">Actividad</th>
+            <th style="width: 14%;">Responsable</th>
+            <th style="width: 6%;">Inicio</th>
+            <th style="width: 6%;">Fin</th>
+            <th style="width: 12%;">Observaciones</th>
+            <th style="width: 8%;">Fecha Mod.</th>
+            <th style="width: 8%;">% Cumpl.</th>
+            <th style="width: 8%; text-align: center;">Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tablaCuerpo">
+          <!-- Filas dinámicas -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal para Personalizar Conclusiones, Recomendaciones y Análisis del Informe -->
+  <div class="modal fade" id="modalAjustesInforme" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-dark text-white">
+          <h5 class="modal-title"><i class="bi bi-journal-check me-2"></i>Personalizar Texto e Interpretación del Informe Gerencial</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted small mb-3">Puede ajustar libremente el análisis de cada subproceso, las conclusiones e ítems de recomendaciones sin borrar la estructura base del informe.</p>
+          
+          <div class="mb-3">
+            <label class="form-label fw-bold text-primary">Análisis Subproceso Evaluación y Seguimiento:</label>
+            <textarea id="txtAnalisisEval" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold text-primary">Análisis Subproceso Fomento de la Cultura de Control:</label>
+            <textarea id="txtAnalisisCult" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold text-primary">Análisis Subproceso Relación con Entes Externos de Control:</label>
+            <textarea id="txtAnalisisEntes" class="form-control" rows="3"></textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold text-dark">Conclusiones Generales (una por línea):</label>
+            <textarea id="txtConclusiones" class="form-control" rows="4"></textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold text-dark">Recomendaciones Específicas (una por línea):</label>
+            <textarea id="txtRecomendaciones" class="form-control" rows="5"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" onclick="guardarAjustesInforme()"><i class="bi bi-save me-1"></i> Guardar Ajustes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Crear / Editar Actividad -->
+  <div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white" id="modalHeader">
+          <h5 class="modal-title" id="modalTitulo"><i class="bi bi-pencil-square me-2"></i>Registrar / Modificar Actividad</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAvance">
+            <input type="hidden" id="modalId">
+            
+            <div class="mb-3" id="containerPosicion">
+              <label class="form-label fw-bold text-primary"><i class="bi bi-hash me-1"></i> Posición / Numeral (#):</label>
+              <input type="number" id="modalPosicion" class="form-control" min="1" placeholder="Ej: 11 (Inserta en el #11 y desplaza el resto)">
+              <small class="text-muted">Si asigna una posición ocupada, las actividades siguientes se reordenarán automáticamente.</small>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold">Subproceso / Procedimiento:</label>
+              <input type="text" id="modalSubproceso" class="form-control" placeholder="Ingrese o edite el Subproceso">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Actividad:</label>
+              <textarea id="modalActividad" class="form-control" rows="2" placeholder="Ingrese o edite el nombre de la actividad"></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold text-secondary"><i class="bi bi-people me-1"></i> Responsables Asignados:</label>
+              <textarea id="modalResponsable" class="form-control" rows="2" placeholder="Ingrese o edite los responsables"></textarea>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label class="form-label fw-bold"><i class="bi bi-calendar-event me-1"></i> Mes de Inicio Programado:</label>
+                <select id="modalMesInicio" class="form-select">
+                  <option value="Enero">Enero</option>
+                  <option value="Febrero">Febrero</option>
+                  <option value="Marzo">Marzo</option>
+                  <option value="Abril">Abril</option>
+                  <option value="Mayo">Mayo</option>
+                  <option value="Junio">Junio</option>
+                  <option value="Julio">Julio</option>
+                  <option value="Agosto">Agosto</option>
+                  <option value="Septiembre">Septiembre</option>
+                  <option value="Octubre">Octubre</option>
+                  <option value="Noviembre">Noviembre</option>
+                  <option value="Diciembre">Diciembre</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold"><i class="bi bi-calendar-check me-1"></i> Mes de Finalización Programado:</label>
+                <select id="modalMesFin" class="form-select">
+                  <option value="Enero">Enero</option>
+                  <option value="Febrero">Febrero</option>
+                  <option value="Marzo">Marzo</option>
+                  <option value="Abril">Abril</option>
+                  <option value="Mayo">Mayo</option>
+                  <option value="Junio">Junio</option>
+                  <option value="Julio">Julio</option>
+                  <option value="Agosto">Agosto</option>
+                  <option value="Septiembre">Septiembre</option>
+                  <option value="Octubre">Octubre</option>
+                  <option value="Noviembre">Noviembre</option>
+                  <option value="Diciembre">Diciembre</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <label class="form-label fw-bold">Fecha Real de Inicio:</label>
+                <input type="date" id="modalFechaInicio" class="form-control">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-bold">Fecha de Modificación:</label>
+                <input type="date" id="modalFecha" class="form-control" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-bold">% Cumplimiento (0 - 100%):</label>
+                <input type="number" id="modalPorcentaje" class="form-control" min="0" max="100" required>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Descripción / Registro de Avance:</label>
+              <textarea id="modalAvanceTexto" class="form-control" rows="4" placeholder="Ingrese el reporte detallado del avance..."></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold text-primary"><i class="bi bi-exclamation-triangle me-1"></i> Observaciones / Novedades / Bloqueos:</label>
+              <textarea id="modalObservacionesTexto" class="form-control" rows="4" placeholder="Ingrese notas adicionales, pendientes, dependencias o cuellos de botella..."></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btnGuardarModal" onclick="guardarAvance()"><i class="bi bi-save me-1"></i> Guardar Cambios</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Cambio de Clave -->
+  <div class="modal fade" id="modalCambiarClave" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-dark text-white">
+          <h5 class="modal-title"><i class="bi bi-key-fill me-2"></i>Cambiar Mi Contraseña</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formCambiarClave">
+            <div class="mb-3">
+              <label class="form-label fw-bold">Contraseña Actual:</label>
+              <input type="password" id="claveActualInput" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Nueva Contraseña:</label>
+              <input type="password" id="nuevaClaveInput" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Confirmar Nueva Contraseña:</label>
+              <input type="password" id="confirmarClaveInput" class="form-control" required>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" onclick="guardarNuevaClave()"><i class="bi bi-save me-1"></i> Actualizar Clave</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Administración de Usuarios -->
+  <div class="modal fade" id="modalUsuarios" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-dark text-white">
+          <h5 class="modal-title"><i class="bi bi-people-fill me-2"></i>Administración de Usuarios y Accesos</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="card p-3 mb-4 bg-light">
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-person-plus-fill me-1"></i> Crear / Actualizar Usuario</h6>
+            <form id="formCrearUsuario" class="row g-3" onsubmit="guardarUsuario(event)">
+              <div class="col-md-4">
+                <label class="form-label fw-semibold small">Usuario:</label>
+                <input type="text" id="nuevoUserNombre" class="form-control form-control-sm" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold small">Contraseña:</label>
+                <input type="password" id="nuevoUserPass" class="form-control form-control-sm" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold small">Rol:</label>
+                <select id="nuevoUserRol" class="form-select form-select-sm">
+                  <option value="Administrador">Administrador</option>
+                  <option value="Operador">Operador</option>
+                </select>
+              </div>
+              <div class="col-12 text-end">
+                <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-check-circle me-1"></i> Guardar Usuario</button>
+              </div>
+            </form>
+          </div>
+
+          <h6 class="fw-bold text-dark"><i class="bi bg-list me-1"></i> Usuarios Registrados</h6>
+          <div class="table-responsive p-0">
+            <table class="table table-striped align-middle small mb-0">
+              <thead class="table-dark">
+                <tr>
+                  <th>Usuario</th>
+                  <th>Rol</th>
+                  <th class="text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tablaUsuariosCuerpo">
+                <!-- Usuarios cargados dinámicamente -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Ver Registro de Ingresos -->
+  <div class="modal fade" id="modalRegistroIngresos" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="bi bi-clock-history me-2"></i>Historial y Control de Accesos al Sistema</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted small">Muestra los últimos inicios de sesión registrados en la plataforma.</span>
+            <div>
+              <button class="btn btn-sm btn-success me-1" onclick="exportarAccesosCSV()"><i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar Log</button>
+              <button class="btn btn-sm btn-outline-danger" onclick="limpiarRegistroAccesos()"><i class="bi bi-trash me-1"></i> Limpiar Historial</button>
+            </div>
+          </div>
+          <div class="table-responsive p-0" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-hover align-middle small mb-0">
+              <thead class="table-light sticky-top">
+                <tr>
+                  <th>#</th>
+                  <th>Fecha y Hora</th>
+                  <th>Usuario</th>
+                  <th>Rol</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="tablaAccesosCuerpo">
+                <!-- Filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    /* SISTEMA MULTIUSUARIO Y AUDITORÍA DE ACCESOS */
+    const usuariosBase = [
+      { usuario: "admin", pass: "1234", rol: "Administrador" }
+    ];
+
+    let usuarios = JSON.parse(localStorage.getItem('sistema_usuarios_v1')) || usuariosBase;
+    let registrosAccesos = JSON.parse(localStorage.getItem('sistema_log_accesos_v1')) || [];
+
+    // Texto personalizable para el Informe Gerencial
+    let datosConfigInforme = JSON.parse(localStorage.getItem('config_informe_v1')) || {
+      analisisEval: "El subproceso presenta un avance acumulado conforme a la programación. Se destacan avances en la gestión del Plan Anual de Auditoría y Control Preventivo, manteniendo revisiones constantes a los papeles de trabajo y cartas de representación.",
+      analisisCult: "El subproceso de Fomento de la Cultura de Control (Enfoque hacia la Prevención) se encuentra estructurado con las jornadas de sensibilización e indicadores previstos para el segundo semestre.",
+      analisisEntes: "En cuanto al subproceso de Relación con Entes Externos de Control, las actividades y asistencias técnicas de rendición están programadas para iniciarse en la fase final de la vigencia.",
+      conclusiones: [
+        "Se alcanzó el 100% de la transición de los procedimientos del proceso al estándar BPMN, garantizando la estandarización y fortalecimiento del modelamiento.",
+        "Se realizó al 100% la revisión y actualización de los riesgos del proceso, identificando y ajustando los factores aplicables sin registrar afectaciones fiscales.",
+        "Se avanzó en la actualización de la información documentada alineada con las necesidades operativas institucionales."
+      ],
+      recomendaciones: [
+        "Designar el reemplazo técnico correspondiente para garantizar la continuidad ininterrumpida de las actividades programadas.",
+        "Ajustar el cronograma del equipo de calidad considerando el tiempo restante de la vigencia actual y las responsabilidades asignadas.",
+        "Priorizar la finalización de la eliminación de riesgos obsoletos e ingreso del Riesgo de Seguridad de la Información en DARUMA.",
+        "Gestionar la aprobación formal del Código de Ética del Auditor Interno ante el CICCI previo a su publicación en DARUMA."
+      ]
+    };
+
+    function guardarUsuariosLS() { localStorage.setItem('sistema_usuarios_v1', JSON.stringify(usuarios)); }
+    function guardarAccesosLS() { localStorage.setItem('sistema_log_accesos_v1', JSON.stringify(registrosAccesos)); }
+    function guardarConfigInformeLS() { localStorage.setItem('config_informe_v1', JSON.stringify(datosConfigInforme)); }
+
+    function registrarIngreso(usuario, rol) {
+      const ahora = new Date();
+      const registro = {
+        fecha: ahora.toLocaleDateString('es-ES') + ' ' + ahora.toLocaleTimeString('es-ES'),
+        usuario: usuario, rol: rol, estado: 'Exitoso'
+      };
+      registrosAccesos.unshift(registro);
+      guardarAccesosLS();
+    }
+
+    function verificarSesion() {
+      const estaAutenticado = sessionStorage.getItem('sesionIniciada');
+      const userActivo = sessionStorage.getItem('usuarioActivo');
+      const rolActivo = sessionStorage.getItem('rolActivo');
+      const loginOverlay = document.getElementById('loginOverlay');
+
+      if (estaAutenticado === 'true') {
+        loginOverlay.style.display = 'none';
+        document.body.classList.remove('overflow-hidden');
+        document.getElementById('lblUsuarioActivo').innerText = userActivo;
+        document.getElementById('badgeRolUsuario').innerText = rolActivo;
+
+        const btnsAdmin = document.querySelectorAll('.solo-admin');
+        btnsAdmin.forEach(btn => {
+          btn.style.display = (rolActivo === 'Administrador') ? 'inline-block' : 'none';
+        });
+
+      } else {
+        loginOverlay.style.display = 'flex';
+        document.body.classList.add('overflow-hidden');
+      }
+    }
+
+    function validarAcceso(event) {
+      event.preventDefault();
+      const user = document.getElementById('inputUsuario').value.trim();
+      const pass = document.getElementById('inputPassword').value.trim();
+      const alertError = document.getElementById('alertLoginError');
+
+      const usuarioEncontrado = usuarios.find(u => u.usuario.toLowerCase() === user.toLowerCase() && u.pass === pass);
+
+      if (usuarioEncontrado) {
+        sessionStorage.setItem('sesionIniciada', 'true');
+        sessionStorage.setItem('usuarioActivo', usuarioEncontrado.usuario);
+        sessionStorage.setItem('rolActivo', usuarioEncontrado.rol);
+        
+        registrarIngreso(usuarioEncontrado.usuario, usuarioEncontrado.rol);
+
+        alertError.classList.add('d-none');
+        document.getElementById('inputPassword').value = '';
+        verificarSesion();
+      } else {
+        alertError.classList.remove('d-none');
+      }
+    }
+
+    function cerrarSesion() {
+      sessionStorage.removeItem('sesionIniciada');
+      sessionStorage.removeItem('usuarioActivo');
+      sessionStorage.removeItem('rolActivo');
+      document.getElementById('inputUsuario').value = '';
+      document.getElementById('inputPassword').value = '';
+      document.getElementById('alertLoginError').classList.add('d-none');
+      verificarSesion();
+    }
+
+    /* GESTIÓN DE USUARIOS Y CLAVES */
+    let modalUsuariosInstancia = null;
+    let modalCambiarClaveInstancia = null;
+    let modalRegistroIngresosInstancia = null;
+    let modalAjustesInformeInstancia = null;
+
+    function abrirModalUsuarios() { renderizarTablaUsuarios(); modalUsuariosInstancia.show(); }
+    function abrirModalCambiarClave() {
+      document.getElementById('claveActualInput').value = '';
+      document.getElementById('nuevaClaveInput').value = '';
+      document.getElementById('confirmarClaveInput').value = '';
+      modalCambiarClaveInstancia.show();
+    }
+    function abrirModalRegistroIngresos() { renderizarTablaAccesos(); modalRegistroIngresosInstancia.show(); }
+
+    function abrirModalAjustesInforme() {
+      document.getElementById('txtAnalisisEval').value = datosConfigInforme.analisisEval || '';
+      document.getElementById('txtAnalisisCult').value = datosConfigInforme.analisisCult || '';
+      document.getElementById('txtAnalisisEntes').value = datosConfigInforme.analisisEntes || '';
+      document.getElementById('txtConclusiones').value = (datosConfigInforme.conclusiones || []).join('\n');
+      document.getElementById('txtRecomendaciones').value = (datosConfigInforme.recomendaciones || []).join('\n');
+      modalAjustesInformeInstancia.show();
+    }
+
+    function guardarAjustesInforme() {
+      datosConfigInforme.analisisEval = document.getElementById('txtAnalisisEval').value.trim();
+      datosConfigInforme.analisisCult = document.getElementById('txtAnalisisCult').value.trim();
+      datosConfigInforme.analisisEntes = document.getElementById('txtAnalisisEntes').value.trim();
+      
+      datosConfigInforme.conclusiones = document.getElementById('txtConclusiones').value
+        .split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+      datosConfigInforme.recomendaciones = document.getElementById('txtRecomendaciones').value
+        .split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+      guardarConfigInformeLS();
+      alert('¡Textos y observaciones del informe guardados con éxito!');
+      modalAjustesInformeInstancia.hide();
+    }
+
+    function guardarUsuario(event) {
+      event.preventDefault();
+      const nombre = document.getElementById('nuevoUserNombre').value.trim();
+      const pass = document.getElementById('nuevoUserPass').value.trim();
+      const rol = document.getElementById('nuevoUserRol').value;
+
+      if (!nombre || !pass) return;
+
+      const idx = usuarios.findIndex(u => u.usuario.toLowerCase() === nombre.toLowerCase());
+      if (idx >= 0) {
+        usuarios[idx].pass = pass;
+        usuarios[idx].rol = rol;
+        alert(`Usuario '${nombre}' actualizado con éxito.`);
+      } else {
+        usuarios.push({ usuario: nombre, pass: pass, rol: rol });
+        alert(`Usuario '${nombre}' creado con éxito.`);
+      }
+
+      guardarUsuariosLS();
+      document.getElementById('formCrearUsuario').reset();
+      renderizarTablaUsuarios();
+    }
+
+    function eliminarUsuario(nombreUser) {
+      if (nombreUser === 'admin') { alert('El usuario "admin" no se puede eliminar.'); return; }
+      if (confirm(`¿Está seguro de eliminar al usuario ${nombreUser}?`)) {
+        usuarios = usuarios.filter(u => u.usuario !== nombreUser);
+        guardarUsuariosLS();
+        renderizarTablaUsuarios();
+      }
+    }
+
+    function renderizarTablaUsuarios() {
+      const tbody = document.getElementById('tablaUsuariosCuerpo');
+      tbody.innerHTML = '';
+      usuarios.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="fw-bold">${u.usuario}</td>
+          <td><span class="badge ${u.rol === 'Administrador' ? 'bg-primary' : 'bg-secondary'}">${u.rol}</span></td>
+          <td class="text-center">
+            <button class="btn btn-sm btn-outline-danger" onclick="eliminarUsuario('${u.usuario}')" ${u.usuario === 'admin' ? 'disabled' : ''}>
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function guardarNuevaClave() {
+      const userActivo = sessionStorage.getItem('usuarioActivo');
+      const claveActual = document.getElementById('claveActualInput').value;
+      const nuevaClave = document.getElementById('nuevaClaveInput').value;
+      const confirmClave = document.getElementById('confirmarClaveInput').value;
+
+      const u = usuarios.find(x => x.usuario === userActivo);
+      if (!u || u.pass !== claveActual) { alert('La contraseña actual es incorrecta.'); return; }
+      if (nuevaClave.length < 3) { alert('La contraseña debe tener al menos 3 caracteres.'); return; }
+      if (nuevaClave !== confirmClave) { alert('La nueva contraseña y la confirmación no coinciden.'); return; }
+
+      u.pass = nuevaClave;
+      guardarUsuariosLS();
+      alert('¡Su contraseña ha sido cambiada exitosamente!');
+      modalCambiarClaveInstancia.hide();
+    }
+
+    function renderizarTablaAccesos() {
+      const tbody = document.getElementById('tablaAccesosCuerpo');
+      tbody.innerHTML = '';
+      if (registrosAccesos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay registros de ingreso.</td></tr>';
+        return;
+      }
+      registrosAccesos.forEach((reg, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${registrosAccesos.length - index}</td>
+          <td>${reg.fecha}</td>
+          <td class="fw-bold">${reg.usuario}</td>
+          <td><span class="badge ${reg.rol === 'Administrador' ? 'bg-primary' : 'bg-secondary'}">${reg.rol}</span></td>
+          <td><span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>${reg.estado}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function limpiarRegistroAccesos() {
+      if (confirm('¿Está seguro de borrar todo el historial de accesos?')) {
+        registrosAccesos = [];
+        guardarAccesosLS();
+        renderizarTablaAccesos();
+      }
+    }
+
+    function exportarAccesosCSV() {
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFFFecha y Hora;Usuario;Rol;Estado\n";
+      registrosAccesos.forEach(a => { csvContent += `"${a.fecha}";"${a.usuario}";"${a.rol}";"${a.estado}"\n`; });
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "registro_accesos_sistema.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    /* DATOS COMPLETOS DE 60 ACTIVIDADES - INTACTOS SIN BORRAR NI MODIFICAR */
+    const datosBase = [
+      { "id": 1, "subproceso": "MCCO01.02 - PROCESO CONTROL INTERNO A LA GESTIÓN MCCO01.02 - GENERALIDADES", "actividad": "Actualizar el documento MCCO01.02.NOR001 Normograma proceso control interno a la gestión.", "responsable": "Carlos Mauricio Velasquez - Contratista, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Febrero", "mesFin": "Mayo", "fechaInicio": "2026-02-01", "fecha": "2026-05-28", "porcentaje": 100, "avance": "El documento fue aprobado el 28 de mayo de 2026, culminando así el proceso de actualización del normograma.", "observaciones": "Aprobado sin novedades." },
+      { "id": 2, "subproceso": "MCCO01.02 - PROCESO CONTROL INTERNO A LA GESTIÓN MCCO01.02 - GENERALIDADES", "actividad": "Actualizar el documento MEDE01.05.02.P030.F001 Contexto por proceso.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Profesional Universitario - Subproceso Fomento de la Cultura de Control, CTO - Proceso Control Interno a la Gestión., Administrativo/Financiero - Proceso Control Interno a la Gestión., Abogad@ - Proceso Control Interno a la Gestión., Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Octubre", "mesFin": "Noviembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 3, "subproceso": "MCCO01.02 - PROCESO CONTROL INTERNO A LA GESTIÓN MCCO01.02 - GENERALIDADES", "actividad": "Actualizar el documento MEDE01.05.02.P030.F002 Partes interesadas por proceso", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Profesional Universitario - Subproceso Fomento de la Cultura de Control, Abogad@ - Proceso Control Interno a la Gestión., Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Octubre", "mesFin": "Noviembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 4, "subproceso": "MCCO01.02 - PROCESO CONTROL INTERNO A LA GESTIÓN MCCO01.02 - GENERALIDADES", "actividad": "Actualizar riesgos del Proceso Control Interno a la Gestión.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Profesional Universitario - Subproceso Fomento de la Cultura de Control, CTO - Proceso Control Interno a la Gestión., Abogad@ - Proceso Control Interno a la Gestión., Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Febrero", "mesFin": "Agosto", "fechaInicio": "2026-01-21", "fecha": "2026-05-27", "porcentaje": 90, "avance": "Dicha propuesta fue presentada al Director y a la líder del subproceso de Evaluación y Seguimiento el 27 de mayo de 2026.", "observaciones": "Pendiente visto bueno final." },
+      { "id": 5, "subproceso": "MCCO01.02 - PROCESO CONTROL INTERNO A LA GESTIÓN MCCO01.02 - GENERALIDADES", "actividad": "Actualizar documento MCCO01.02.MPR001 Modelación del Proceso Control Interno a la Gestión", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Profesional Universitario - Subproceso Fomento de la Cultura de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Octubre", "mesFin": "Octubre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 6, "subproceso": "MCCO01.02.03 - SUBPROCESO EVALUACION Y SEGUIMIENTO", "actividad": "Actualizar documento MCCO01.02.CD001 Código de ética del auditor interno.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Febrero", "mesFin": "Julio", "fechaInicio": "", "fecha": "2026-05-29", "porcentaje": 95, "avance": "Aprobado en comité institucional de coordinación de control interno.", "observaciones": "" },
+      { "id": 7, "subproceso": "MCCO01.02.03 - SUBPROCESO EVALUACION Y SEGUIMIENTO", "actividad": "Actualizar documento MCCO01.02.CD002 Estatuto de Auditoría Interna.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Abril", "mesFin": "Septiembre", "fechaInicio": "", "fecha": "2026-05-29", "porcentaje": 5, "avance": "En revisión preliminar.", "observaciones": "" },
+      { "id": 8, "subproceso": "MCCO01.02.03 - SUBPROCESO EVALUACION Y SEGUIMIENTO", "actividad": "Revisar y actualizar (de ser necesario) documento MCCO01.02.03.MSPR001 Modelación del Subproceso Evaluación y Seguimiento.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Mayo", "mesFin": "Septiembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 9, "subproceso": "MCCO01.02.03 - SUBPROCESO EVALUACION Y SEGUIMIENTO", "actividad": "Actualizar documento MCCO01.02.03.DIPC001 Determinación Insumos y Proveedores - Productos, Cliente y/o Grupos de Interés Subproceso.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Febrero", "mesFin": "Septiembre", "fechaInicio": "", "fecha": "2026-05-28", "porcentaje": 90, "avance": "Remitido para validación final.", "observaciones": "" },
+      { "id": 10, "subproceso": "MCCO01.02.03 - SUBPROCESO EVALUACION Y SEGUIMIENTO", "actividad": "Revisar y actualizar (de ser necesario) MCCO01.02.03.IGR001 Informes Generales Subproceso Evaluación y Seguimiento.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Mayo", "mesFin": "Octubre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 11, "subproceso": "MCCO01.02.03 - SUBPROCESO EVALUACION Y SEGUIMIENTO", "actividad": "Revisar y actualizar (de ser necesario) los indicadores del Subproceso Evaluación y Seguimiento:   - MCCO01.02.FT04 Oportunidad en la Realización de las auditorías internas. Frecuencia: 4 Meses. - MCCO01.02.FT09 Cumplimiento acumulado del programa anual de auditoría interna de la vigencia: 3 Meses.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Febrero", "mesFin": "Diciembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 12, "subproceso": "MCCO01.02.03 - SUBPROCESO EVALUACION Y SEGUIMIENTO", "actividad": "Revisar y actualizar (de ser necesario) documento MCCO01.02.PO001 Políticas de operación del proceso control interno a la gestión No. 1, 2, 3 y 4.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Marzo", "mesFin": "Agosto", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 13, "subproceso": "MCCO01.02.03 - SUBPROCESO EVALUACION Y SEGUIMIENTO", "actividad": "Crear Manual del Subproceso Evaluación y Seguimiento.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Junio", "mesFin": "Noviembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 14, "subproceso": "MCCO01.02.03.P003 - PROCEDIMIENTO GESTIÓN DEL PLAN ANUAL DE AUDITORÍA INTERNA", "actividad": "Actualizar procedimiento MCCO01.02.03.P003 Gestión del Plan Anual de Auditoría", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Marzo", "mesFin": "Julio", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 15, "subproceso": "MCCO01.02.03.P003 - PROCEDIMIENTO GESTIÓN DEL PLAN ANUAL DE AUDITORÍA INTERNA", "actividad": "Revisar y actualizar (de ser necesario) formato MCCO01.02.03.P003.F001 Plan Anual de Auditoría", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Abril", "mesFin": "Julio", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 16, "subproceso": "MCCO01.02.03.P004 - PROCEDIMIENTO REALIZACIÓN DE AUDITORÍA INTERNA", "actividad": "Actualizar procedimiento MCCO01.02.03.P004 Realización de Auditoría Interna", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Marzo", "mesFin": "Agosto", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 17, "subproceso": "MCCO01.02.03.P004 - PROCEDIMIENTO REALIZACIÓN DE AUDITORÍA INTERNA", "actividad": "Revisar y actualizar (de ser necesario) formato MCCO01.02.03.P004.F001 Plan de Auditoría Interna", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Mayo", "mesFin": "Agosto", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 18, "subproceso": "MCCO01.02.03.P004 - PROCEDIMIENTO REALIZACIÓN DE AUDITORÍA INTERNA", "actividad": "Revisar y actualizar (de ser necesario) formato MCCO01.02.03.P004.F002 Papel de trabajo del auditor interno", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Mayo", "mesFin": "Agosto", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 19, "subproceso": "MCCO01.02.03.P004 - PROCEDIMIENTO REALIZACIÓN DE AUDITORÍA INTERNA", "actividad": "Revisar y actualizar (de ser necesario) formato MCCO01.02.03.P004.F003 Informe Detallado de Auditoría Interna", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Mayo", "mesFin": "Agosto", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 20, "subproceso": "MCCO01.02.03.P004 - PROCEDIMIENTO REALIZACIÓN DE AUDITORÍA INTERNA", "actividad": "Revisar y actualizar (de ser necesario) formato MCCO01.02.03.P004.F008 Carta de Representación", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Mayo", "mesFin": "Agosto", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 21, "subproceso": "MCCO01.02.03.P004 - PROCEDIMIENTO REALIZACIÓN DE AUDITORÍA INTERNA", "actividad": "Revisar y actualizar (de ser necesario) formato MCCO01.02.03.P004.F008 Resultados Preliminares Auditoría Interna.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Mayo", "mesFin": "Agosto", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 22, "subproceso": "MCCO01.02.03.P004 - PROCEDIMIENTO REALIZACIÓN DE AUDITORÍA INTERNA", "actividad": "Revisar y actualizar (de ser necesario) formato MCCO01.02.03.P004.F009 Informe Ejecutivo de Auditoría Interna.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Mayo", "mesFin": "Agosto", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 23, "subproceso": "MCCO01.02.03.P004 - PROCEDIMIENTO REALIZACIÓN DE AUDITORÍA INTERNA", "actividad": "Revisar y actualizar (de ser necesario) formato MCCO01.02.03.P004.F010 Acta Ejercicio Auditor.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Mayo", "mesFin": "Agosto", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 24, "subproceso": "MCCO01.02.03.P004 - PROCEDIMIENTO REALIZACIÓN DE AUDITORÍA INTERNA", "actividad": "Revisar y actualizar (de ser necesario) formato MCCO01.02.03.P004.F011 Listado Participantes Ejercicio Auditor", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Mayo", "mesFin": "Agosto", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 25, "subproceso": "MCCO01.02.03.P004 - PROCEDIMIENTO REALIZACIÓN DE AUDITORÍA INTERNA", "actividad": "Revisar y actualizar (de ser necesario) formato MCCO01.02.03.P004.F012 Registro de Visita en Sitio del Ejercicio Auditor.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Mayo", "mesFin": "Agosto", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 26, "subproceso": "MCCO01.02.03.P005 - PROCEDIMIENTO SEGUIMIENTO A PLANES DE MEJORAMIENTO PRODUCTO DE AUDITORÍAS INTERNAS Y CONTRALORÍAS", "actividad": "Reactivar mesas de trabajo con el DADII para definir responsabilidades y alcance.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Febrero", "mesFin": "Abril", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 27, "subproceso": "MCCO01.02.03.P005 - PROCEDIMIENTO SEGUIMIENTO A PLANES DE MEJORAMIENTO PRODUCTO DE AUDITORÍAS INTERNAS Y CONTRALORÍAS", "actividad": "Actualizar procedimiento MCCO01.02.03.P005 Realización de Seguimientos a Planes de Mejoramiento Producto de Auditorías Internas y Contralorías.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Abril", "mesFin": "Septiembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 28, "subproceso": "MCCO01.02.03.P005 - PROCEDIMIENTO SEGUIMIENTO A PLANES DE MEJORAMIENTO PRODUCTO DE AUDITORÍAS INTERNAS Y CONTRALORÍAS", "actividad": "Actualizar metodología de los Seguimientos a planes de mejoramiento suscritos con el DACI y con las contralorías.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Abril", "mesFin": "Septiembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 29, "subproceso": "MCCO01.02.03.P005 - PROCEDIMIENTO SEGUIMIENTO A PLANES DE MEJORAMIENTO PRODUCTO DE AUDITORÍAS INTERNAS Y CONTRALORÍAS", "actividad": "Actualizar formato MCCO01.02.03.P005.F001 Papel de trabajo del auditor interno seguimiento al plan de mejoramiento suscrito y presentado a la dirección de control interno.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Junio", "mesFin": "Septiembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 30, "subproceso": "MCCO01.02.03.P005 - PROCEDIMIENTO SEGUIMIENTO A PLANES DE MEJORAMIENTO PRODUCTO DE AUDITORÍAS INTERNAS Y CONTRALORÍAS", "actividad": "Actualizar formato MCCO01.02.03.P005.F002 Papel de trabajo del auditor interno seguimiento al plan de mejoramiento suscrito y presentado a la contraloría.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Junio", "mesFin": "Septiembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 31, "subproceso": "MCCO01.02.03.P005 - PROCEDIMIENTO SEGUIMIENTO A PLANES DE MEJORAMIENTO PRODUCTO DE AUDITORÍAS INTERNAS Y CONTRALORÍAS", "actividad": "Actualizar formato MCCO01.02.03.P005.F003 Informe de auditoría interna de seguimiento al plan de mejoramiento suscrito y presentado a la dirección de control interno.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Junio", "mesFin": "Septiembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 32, "subproceso": "MCCO01.02.03.P005 - PROCEDIMIENTO SEGUIMIENTO A PLANES DE MEJORAMIENTO PRODUCTO DE AUDITORÍAS INTERNAS Y CONTRALORÍAS", "actividad": "Actualizar formato MCCO01.02.03.P005.F004 Informe de auditoría interna de seguimiento al plan de mejoramiento suscrito y presentado a la contraloría.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Junio", "mesFin": "Septiembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 33, "subproceso": "MCCO01.02.03.P005 - PROCEDIMIENTO SEGUIMIENTO A PLANES DE MEJORAMIENTO PRODUCTO DE AUDITORÍAS INTERNAS Y CONTRALORÍAS", "actividad": "Revisar y actualizar (de ser necesario) formato MCCO01.02.03.P005.F005 Resultados preliminares de seguimiento al plan de mejoramiento.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Junio", "mesFin": "Septiembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 34, "subproceso": "MCCO01.02.03.P010 - PROCEDIMIENTO REALIZACIÓN DE SEGUIMIENTOS DE LEY U OTROS REQUERIMIENTOS.", "actividad": "Revisar y actualizar (de ser necesario) procedimiento MCCO01.02.03.P010 Realización de Seguimientos de Ley u Otros requerimientos.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Julio", "mesFin": "Octubre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 35, "subproceso": "MCCO01.02.03.P010 - PROCEDIMIENTO REALIZACIÓN DE SEGUIMIENTOS DE LEY U OTROS REQUERIMIENTOS.", "actividad": "Definir metodología de la realización de Seguimientos de Ley u Otros requerimientos", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Julio", "mesFin": "Octubre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 36, "subproceso": "MCCO01.02.03.P010 - PROCEDIMIENTO REALIZACIÓN DE SEGUIMIENTOS DE LEY U OTROS REQUERIMIENTOS.", "actividad": "Crear formato Papel de trabajo del auditor interno Realización de Seguimientos de Ley u Otros requerimientos", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Agosto", "mesFin": "Octubre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 37, "subproceso": "MCCO01.02.03.P010 - PROCEDIMIENTO REALIZACIÓN DE SEGUIMIENTOS DE LEY U OTROS REQUERIMIENTOS.", "actividad": "Actualizar base de datos Resultados Seguimientos de Ley u Otros requerimientos", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Agosto", "mesFin": "Octubre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 38, "subproceso": "MCCO01.02.03.P010 - PROCEDIMIENTO REALIZACIÓN DE SEGUIMIENTOS DE LEY U OTROS REQUERIMIENTOS.", "actividad": "Revisar y actualizar (de ser necesario) formato MCCO01.02.03.P010.F001 Resultados preliminares de seguimientos", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Agosto", "mesFin": "Octubre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 39, "subproceso": "MCCO01.02.03.P010 - PROCEDIMIENTO REALIZACIÓN DE SEGUIMIENTOS DE LEY U OTROS REQUERIMIENTOS.", "actividad": "Revisar y actualizar (de ser necesario) MCCO01.02.03.P010.F002 Informe de seguimiento de ley u otros requerimientos", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Agosto", "mesFin": "Octubre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 40, "subproceso": "MCCO01.02.03.P007 - PROCEDIMIENTO CONTROL PREVENTIVO (SEGUIMIENTO, ASESORÍAS Y ACOMPAÑAMIENTOS)", "actividad": "Solicitar la eliminación MCCO01.02.03.P007 Control Preventivo (Seguimiento, asesorías y acompañamientos)", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario, Hervin Yesid Ruiz Perlaza - Profesional Universitario, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Septiembre", "mesFin": "Octubre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 41, "subproceso": "MCCO01.02.04 - SUBPROCESO RELACION CON ENTES EXTERNOS DE CONTROL", "actividad": "Revisar y actualizar (de ser necesario) MCCO01.02.04.MSPR001 Modelación Subproceso Relación con Entes Externos de Control.", "responsable": "Profesional Universitario - Subproceso Relaciones con Entes de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Octubre", "mesFin": "Noviembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 42, "subproceso": "MCCO01.02.04 - SUBPROCESO RELACION CON ENTES EXTERNOS DE CONTROL", "actividad": "Revisar y actualizar (de ser necesario) MCCO01.02.04.DIPC001 Determinación Insumos y Proveedores - Productos, Cliente y/o Grupos de Interés Subproceso Relación con Entes Externos de Control.", "responsable": "Profesional Universitario - Subproceso Relaciones con Entes de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Octubre", "mesFin": "Noviembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 43, "subproceso": "MCCO01.02.04 - SUBPROCESO RELACION CON ENTES EXTERNOS DE CONTROL", "actividad": "Revisar y actualizar (de ser necesario) MCCO01.02.04.PCT001 Plan de Control Subproceso Relación con Entes Externos de Control.", "responsable": "Profesional Universitario - Subproceso Relaciones con Entes de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Octubre", "mesFin": "Noviembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 44, "subproceso": "MCCO01.02.04 - SUBPROCESO RELACION CON ENTES EXTERNOS DE CONTROL", "actividad": "Actualizar documento MCCO01.02.04.IGR001 Informes Generales Subproceso Relación con Entes Externos de Control", "responsable": "Profesional Universitario - Subproceso Relaciones con Entes de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Octubre", "mesFin": "Noviembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 45, "subproceso": "MCCO01.02.04 - SUBPROCESO RELACION CON ENTES EXTERNOS DE CONTROL", "actividad": "Revisar y actualizar (de ser necesario)  los indicadores del Subproceso Relación con Entes Externos de Control:  MCCO01.02.FT06 Seguimiento a las respuestas dadas por los organismos a los requerimientos de los entes externos de control dirigidos al alcalde: Frecuencia 1 Mes.  MCCO01.02,FT06 Porcentaje de formatos de obligatorio cumplimiento rendidos oportunamente a los entes externos de control.", "responsable": "Profesional Universitario - Subproceso Relaciones con Entes de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Febrero", "mesFin": "Diciembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 46, "subproceso": "MCCO01.02.04.P001 - PROCEDIMIENTO SEGUIMIENTO A LA ATENCIÓN DE LOS REQUERIMIENTOS DE LOS ENTES EXTERNOS DE CONTROL", "actividad": "Revisar y actualizar (de ser necesario) el procedimiento MCCO01.02.04.P001 Seguimiento a la atención de los requerimientos de los entes externos de control.", "responsable": "Profesional Universitario - Subproceso Relaciones con Entes de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Noviembre", "mesFin": "Noviembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 47, "subproceso": "MCCO01.02.04.P002 - PROCEDIMIENTO ASISTENCIA TÉCNICA PARA LA RENDICIÓN DE FORMATOS ANTE LOS ENTES EXTERNOS DE CONTROL", "actividad": "Revisar y actualizar (de ser necesario) el procedimiento MCCO01.02.04.P002 Asistencia técnica para la rendición de formatos ante los entes externos de control.", "responsable": "Profesional Universitario - Subproceso Relaciones con Entes de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Noviembre", "mesFin": "Noviembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 48, "subproceso": "MCCO01.02.04.P003 - PROCEDIMIENTO ASISTENCIA TÉCNICA EN FORMULACIÓN Y SUSCRIPCIÓN DE PLANES DE MEJORAMIENTO CON ENTES EXTERNOS DE CONTROL", "actividad": "Revisar y actualizar (de ser necesario) el procedimiento MCCO01.02.04.P003 Asistencia técnica en formulación y suscripción de planes de mejoramiento con entes externos de control.", "responsable": "Profesional Universitario - Subproceso Relaciones con Entes de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Noviembre", "mesFin": "Noviembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 49, "subproceso": "MCCO01.02.01 - SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL", "actividad": "Actualizar documento MCCO01.02.01.MSPR001 Modelación del Subproceso Fomento de la Cultura de Control.", "responsable": "Profesional Universitario - Subproceso Fomento de la Cultura de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Noviembre", "mesFin": "Diciembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 50, "subproceso": "MCCO01.02.01 - SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL", "actividad": "Actualizar documento MCCO01.02.01.IGR001 Informes Generales Subproceso Fomento de la Cultura de Control.", "responsable": "Profesional Universitario - Subproceso Fomento de la Cultura de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Noviembre", "mesFin": "Diciembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 51, "subproceso": "MCCO01.02.01 - SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL", "actividad": "Actualizar documento MCCO01.02.01.DIPC001 Determinación Insumos y Proveedores – Productos, Cliente y/o Grupos de Interés Subproceso Fomento de la Cultura de Control.", "responsable": "Profesional Universitario - Subproceso Fomento de la Cultura de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Noviembre", "mesFin": "Diciembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 52, "subproceso": "MCCO01.02.01 - SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL", "actividad": "Revisar y actualizar (de ser necesario) documento MCCO01.02.01.M001 Manual Mapa de Aseguramiento", "responsable": "Profesional Universitario - Subproceso Fomento de la Cultura de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Julio", "mesFin": "Noviembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 53, "subproceso": "MCCO01.02.01 - SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL", "actividad": "Actualizar indicadores del Subproceso Fomento de la Cultura de Control:  MCCO01.02.FT01 Servidores públicos sensibilizados sobre el fomento de la cultura de control: Frecuencia 12 Meses.  MCCO01.02.FT02 Seguimiento a la sensibilización sobre el fomento de la cultura de control: 12 Meses.", "responsable": "Profesional Universitario - Subproceso Fomento de la Cultura de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Febrero", "mesFin": "Diciembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 54, "subproceso": "MCCO01.02.01 - SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL", "actividad": "Actualizar documento MCCO01.02.01.PCT001 Plan de Control Subproceso Enfoque Hacia la Prevención", "responsable": "Profesional Universitario - Subproceso Fomento de la Cultura de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Noviembre", "mesFin": "Diciembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 55, "subproceso": "MCCO01.02.01 - SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL", "actividad": "Revisar y actualizar (de ser necesario) MCCO01.02.PO001 Políticas de Operación del Proceso Control Interno a la Gestión No. 5, 6 y 7.", "responsable": "Profesional Universitario - Subproceso Fomento de la Cultura de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Noviembre", "mesFin": "Diciembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 56, "subproceso": "MCCO01.02.01.P002 - PROCEDIMIENTO REALIZACIÓN DEL FOMENTO DE LA CULTURA DEL CONTROL", "actividad": "Actualizar procedimiento MCCO01.02.01.P002 Realización del Fomento de la Cultura del Control.", "responsable": "Profesional Universitario - Subproceso Fomento de la Cultura de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Noviembre", "mesFin": "Diciembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 57, "subproceso": "PROCEDIMIENTO - ASESORIA Y ACOMPAÑAMIENTOS", "actividad": "Crear procedimiento de asesoría y acompañamiento.", "responsable": "Profesional Universitario - Subproceso Fomento de la Cultura de Control, Cesar Norberto Albarracin Ochoa - Director de Departamento Administrativo, Equipo delegado al CTG", "mesInicio": "Mayo", "mesFin": "Noviembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 58, "subproceso": "MCCO01.02 - PROCESO CONTROL INTERNO A LA GESTIÓN MCCO01.02 - GENERALIDADES", "actividad": "Consolidar el informe final de seguimiento y evaluacion del SGC.", "responsable": "Equipo delegado al CTG", "mesInicio": "Noviembre", "mesFin": "Diciembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 59, "subproceso": "MCCO01.02.03 - SUBPROCESO EVALUACION Y SEGUIMIENTO", "actividad": "Socializar resultados de las auditorías institucionales con los líderes de proceso.", "responsable": "Nora Liliana Rodriguez Gonzalez - Profesional Universitario", "mesInicio": "Octubre", "mesFin": "Diciembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" },
+      { "id": 60, "subproceso": "MCCO01.02.01 - SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL", "actividad": "Evaluar la efectividad del plan de formación en cultura de control.", "responsable": "Profesional Universitario - Subproceso Fomento de la Cultura de Control", "mesInicio": "Diciembre", "mesFin": "Diciembre", "fechaInicio": "", "fecha": "", "porcentaje": 0, "avance": "", "observaciones": "" }
+    ];
+
+    let actividades = JSON.parse(localStorage.getItem('actividadesProcesos_v8'));
+    if (!actividades || actividades.length < 60) {
+      actividades = JSON.parse(JSON.stringify(datosBase));
+      localStorage.setItem('actividadesProcesos_v8', JSON.stringify(actividades));
+    }
+
+    let modalInstance = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      verificarSesion();
+      modalInstance = new bootstrap.Modal(document.getElementById('modalEditar'));
+      modalUsuariosInstancia = new bootstrap.Modal(document.getElementById('modalUsuarios'));
+      modalCambiarClaveInstancia = new bootstrap.Modal(document.getElementById('modalCambiarClave'));
+      modalRegistroIngresosInstancia = new bootstrap.Modal(document.getElementById('modalRegistroIngresos'));
+      modalAjustesInformeInstancia = new bootstrap.Modal(document.getElementById('modalAjustesInforme'));
+
+      cargarSubprocesosEnSelect();
+      renderizarTabla();
+    });
+
+    function guardarEnLocalStorage() {
+      localStorage.setItem('actividadesProcesos_v8', JSON.stringify(actividades));
+    }
+
+    function cargarSubprocesosEnSelect() {
+      const select = document.getElementById('selectSubproceso');
+      const valorSeleccionado = select.value;
+      select.innerHTML = '<option value="">-- Todos los Subprocesos --</option>';
+      const subprocesosUnicos = [...new Set(actividades.map(a => a.subproceso))];
+      
+      subprocesosUnicos.forEach(sub => {
+        if(sub) {
+          const option = document.createElement('option');
+          option.value = sub;
+          option.textContent = sub;
+          select.appendChild(option);
+        }
+      });
+      select.value = valorSeleccionado;
+    }
+
+    function alternarGrupo(subprocesoId) {
+      const filas = document.querySelectorAll(`.grupo-${subprocesoId}`);
+      const icono = document.getElementById(`icon-grupo-${subprocesoId}`);
+      let estaOculto = false;
+
+      filas.forEach(fila => {
+        if (fila.style.display === 'none') {
+          fila.style.display = '';
+          estaOculto = false;
+        } else {
+          fila.style.display = 'none';
+          estaOculto = true;
+        }
+      });
+
+      if (icono) {
+        icono.className = estaOculto ? 'bi bi-chevron-right me-2 text-primary' : 'bi bi-chevron-down me-2 text-primary';
+      }
+    }
+
+    function alternarTodosGrupos(expandir) {
+      const subprocesosMap = {};
+      actividades.forEach(item => {
+        if (!subprocesosMap[item.subproceso]) {
+          subprocesosMap[item.subproceso] = [];
+        }
+        subprocesosMap[item.subproceso].push(item);
+      });
+
+      Object.keys(subprocesosMap).forEach((sub, idx) => {
+        const subId = 'sub-' + idx;
+        const filas = document.querySelectorAll(`.grupo-${subId}`);
+        const icono = document.getElementById(`icon-grupo-${subId}`);
+        
+        filas.forEach(fila => {
+          fila.style.display = expandir ? '' : 'none';
+        });
+
+        if (icono) {
+          icono.className = expandir ? 'bi bi-chevron-down me-2 text-primary' : 'bi bi-chevron-right me-2 text-primary';
+        }
+      });
+    }
+
+    function obtenerDetalleSubprocesoHTML(textoSubproceso) {
+      const textoUpper = (textoSubproceso || '').toUpperCase();
+      let badgeClass = 'badge-subproceso';
+      let etiquetaTexto = 'SUBPROCESO';
+      let icono = 'bi-diagram-3-fill';
+
+      if (textoUpper.includes('.F0') || textoUpper.includes('FORMATO')) {
+        badgeClass = 'badge-formato';
+        etiquetaTexto = 'FORMATO / REGISTRO';
+        icono = 'bi-file-earmark-text-fill';
+      } else if (textoUpper.includes('PROCEDIMIENTO')) {
+        badgeClass = 'badge-procedimiento';
+        etiquetaTexto = 'PROCEDIMIENTO';
+        icono = 'bi-gear-wide-connected';
+      } else if (textoUpper.includes('PROCESO CONTROL INTERNO') && !textoUpper.includes('SUBPROCESO')) {
+        badgeClass = 'badge-proceso-general';
+        etiquetaTexto = 'PROCESO GENERAL';
+        icono = 'bi-box-seam-fill';
+      }
+
+      return `
+        <div>
+          <span class="subproceso-badge ${badgeClass}">
+            <i class="bi ${icono} me-1"></i>${etiquetaTexto}
+          </span>
+        </div>
+        <div class="fw-semibold text-dark small">${textoSubproceso}</div>
+      `;
+    }
+
+    function renderizarTabla() {
+      const tbody = document.getElementById('tablaCuerpo');
+      const filtroSub = document.getElementById('selectSubproceso').value;
+      const filtroEstadoCumplimiento = document.getElementById('selectEstadoCumplimiento').value;
+      const filtroMinPorcentaje = document.getElementById('inputMinPorcentaje').value;
+      const filtroMaxPorcentaje = document.getElementById('inputMaxPorcentaje').value;
+      const filtroMesInicio = document.getElementById('selectMesInicio').value;
+      const filtroMesFin = document.getElementById('selectMesFin').value;
+      const filtroTexto = document.getElementById('inputBuscar').value.toLowerCase();
+      
+      tbody.innerHTML = '';
+
+      let filtrados = actividades.filter(item => {
+        const coincideSub = !filtroSub || item.subproceso === filtroSub;
+        
+        let coincideEstado = true;
+        if (filtroEstadoCumplimiento === 'sin_iniciar') {
+          coincideEstado = (item.porcentaje === 0);
+        } else if (filtroEstadoCumplimiento === 'en_proceso') {
+          coincideEstado = (item.porcentaje > 0 && item.porcentaje < 100);
+        } else if (filtroEstadoCumplimiento === 'completado') {
+          coincideEstado = (item.porcentaje === 100);
+        }
+
+        const p = item.porcentaje || 0;
+        const minVal = filtroMinPorcentaje !== '' ? parseInt(filtroMinPorcentaje) : 0;
+        const maxVal = filtroMaxPorcentaje !== '' ? parseInt(filtroMaxPorcentaje) : 100;
+        const coincideRangoPorcentaje = (p >= minVal && p <= maxVal);
+
+        const coincideMesInicio = !filtroMesInicio || item.mesInicio === filtroMesInicio;
+        const coincideMesFin = !filtroMesFin || item.mesFin === filtroMesFin;
+
+        const coincideTexto = (item.actividad && item.actividad.toLowerCase().includes(filtroTexto)) || 
+                              (item.subproceso && item.subproceso.toLowerCase().includes(filtroTexto)) ||
+                              (item.responsable && item.responsable.toLowerCase().includes(filtroTexto)) ||
+                              (item.observaciones && item.observaciones.toLowerCase().includes(filtroTexto));
+        
+        return coincideSub && coincideEstado && coincideRangoPorcentaje && coincideMesInicio && coincideMesFin && coincideTexto;
+      });
+
+      const subprocesosMap = {};
+      filtrados.forEach(item => {
+        if (!subprocesosMap[item.subproceso]) {
+          subprocesosMap[item.subproceso] = [];
+        }
+        subprocesosMap[item.subproceso].push(item);
+      });
+
+      let groupIndex = 0;
+
+      Object.keys(subprocesosMap).forEach(subNombre => {
+        const subId = 'sub-' + groupIndex;
+        const itemsGrupo = subprocesosMap[subNombre];
+
+        const sumaGrupo = itemsGrupo.reduce((acc, a) => acc + (a.porcentaje || 0), 0);
+        const promGrupo = itemsGrupo.length > 0 ? Math.round(sumaGrupo / itemsGrupo.length) : 0;
+        
+        let colorBadgeGrupo = promGrupo === 100 ? 'bg-success' : promGrupo > 0 ? 'bg-warning text-dark' : 'bg-secondary';
+
+        const trHeader = document.createElement('tr');
+        trHeader.className = 'tr-subproceso-header';
+        trHeader.onclick = () => alternarGrupo(subId);
+        trHeader.innerHTML = `
+          <td colspan="10" class="fw-bold text-dark py-2">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+              <div>
+                <i id="icon-grupo-${subId}" class="bi bi-chevron-down me-2 text-primary"></i>
+                <span class="text-primary me-2"><i class="bi bi-folder-fill me-1"></i>${subNombre}</span>
+                <span class="badge bg-secondary rounded-pill fw-normal me-2">${itemsGrupo.length} actividad(es)</span>
+              </div>
+              <div class="d-flex align-items-center ms-auto me-3" style="min-width: 220px;">
+                <span class="me-2 small text-muted fw-bold">Avance Grupo:</span>
+                <span class="badge ${colorBadgeGrupo} me-2">${promGrupo}%</span>
+                <div class="progress flex-grow-1" style="height: 8px;">
+                  <div class="progress-bar ${colorBadgeGrupo}" role="progressbar" style="width: ${promGrupo}%"></div>
+                </div>
+              </div>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(trHeader);
+
+        itemsGrupo.forEach(item => {
+          const tr = document.createElement('tr');
+          tr.className = `grupo-${subId}`;
+          let badgeColor = item.porcentaje === 100 ? 'bg-success' : item.porcentaje > 0 ? 'bg-warning text-dark' : 'bg-secondary';
+          
+          let badgeCol3Class = 'activity-status-pendiente';
+          let badgeCol3Text = 'Pendiente (0%)';
+          let iconCol3 = 'bi-circle';
+
+          if (item.porcentaje === 100) {
+            badgeCol3Class = 'activity-status-completado';
+            badgeCol3Text = 'Completado (100%)';
+            iconCol3 = 'bi-check-circle-fill';
+          } else if (item.porcentaje > 0) {
+            badgeCol3Class = 'activity-status-proceso';
+            badgeCol3Text = `En Proceso (${item.porcentaje}%)`;
+            iconCol3 = 'bi-hourglass-split';
+          }
+
+          tr.innerHTML = `
+            <td class="fw-bold">${item.id}</td>
+            <td>${obtenerDetalleSubprocesoHTML(item.subproceso)}</td>
+            <td>
+              <div>
+                <span class="activity-badge ${badgeCol3Class}">
+                  <i class="bi ${iconCol3} me-1"></i>${badgeCol3Text}
+                </span>
+              </div>
+              <div class="fw-normal">${item.actividad}</div>
+              ${item.avance ? `<small class="text-muted d-block mt-1 text-truncate-2" title="${item.avance}"><em><i class="bi bi-card-text me-1"></i>${item.avance}</em></small>` : ''}
+            </td>
+            <td><span class="small text-dark"><i class="bi bi-person me-1 text-primary"></i>${item.responsable || 'No asignado'}</span></td>
+            <td><span class="badge bg-light text-primary border border-primary small">${item.mesInicio || 'Febrero'}</span></td>
+            <td><span class="badge bg-light text-dark border small">${item.mesFin || 'Diciembre'}</span></td>
+            <td>
+              ${item.observaciones ? `<span class="small text-primary fw-semibold"><i class="bi bi-info-circle me-1"></i>${item.observaciones}</span>` : '<span class="text-muted small">Sin observaciones</span>'}
+            </td>
+            <td><span class="small">${item.fecha || '<span class="text-muted">Pendiente</span>'}</span></td>
+            <td>
+              <div class="d-flex align-items-center">
+                <span class="me-2 fw-bold small">${item.porcentaje}%</span>
+                <div class="progress w-100" style="height: 6px;">
+                  <div class="progress-bar ${badgeColor}" role="progressbar" style="width: ${item.porcentaje}%"></div>
+                </div>
+              </div>
+            </td>
+            <td class="text-center">
+              <button type="button" class="btn btn-sm btn-primary shadow-sm" onclick="abrirModal(${item.id})">
+                <i class="bi bi-pencil-square me-1"></i>Editar
+              </button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        groupIndex++;
+      });
+
+      actualizarMétricas(filtrados);
+    }
+
+    function actualizarMétricas(lista = actividades) {
+      const total = lista.length;
+      const completadas = lista.filter(a => a.porcentaje === 100).length;
+      const enProceso = lista.filter(a => a.porcentaje > 0 && a.porcentaje < 100).length;
+      const pendientes = lista.filter(a => a.porcentaje === 0).length;
+
+      const porcentajeEnProceso = total > 0 ? Math.round((enProceso / total) * 100) : 0;
+      const porcentajeCompletadas = total > 0 ? Math.round((completadas / total) * 100) : 0;
+      const porcentajePendientes = total > 0 ? Math.round((pendientes / total) * 100) : 0;
+
+      document.getElementById('totalActividades').innerText = total;
+      document.getElementById('enProceso').innerText = `${enProceso} (${porcentajeEnProceso}%)`;
+      document.getElementById('completadas').innerText = `${completadas} (${porcentajeCompletadas}%)`;
+      document.getElementById('pendientes').innerText = `${pendientes} (${porcentajePendientes}%)`;
+    }
+
+    function abrirModal(id) {
+      const item = actividades.find(a => a.id === id);
+      if (!item) return;
+
+      document.getElementById('modalHeader').className = "modal-header bg-primary text-white";
+      document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-pencil-square me-2"></i>Editar Actividad';
+
+      document.getElementById('modalId').value = item.id;
+      document.getElementById('modalPosicion').value = item.id;
+      document.getElementById('modalSubproceso').value = item.subproceso || '';
+      document.getElementById('modalActividad').value = item.actividad || '';
+      document.getElementById('modalResponsable').value = item.responsable || '';
+      document.getElementById('modalMesInicio').value = item.mesInicio || 'Febrero';
+      document.getElementById('modalMesFin').value = item.mesFin || 'Diciembre';
+      document.getElementById('modalFechaInicio').value = item.fechaInicio || '';
+      document.getElementById('modalFecha').value = item.fecha || new Date().toISOString().split('T')[0];
+      document.getElementById('modalPorcentaje').value = item.porcentaje || 0;
+      document.getElementById('modalAvanceTexto').value = item.avance || '';
+      document.getElementById('modalObservacionesTexto').value = item.observaciones || '';
+
+      modalInstance.show();
+    }
+
+    function abrirModalCrear() {
+      document.getElementById('modalHeader').className = "modal-header bg-warning text-dark";
+      document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-plus-circle-fill me-2"></i>Adicionar Nueva Actividad';
+
+      document.getElementById('modalId').value = '';
+      document.getElementById('modalPosicion').value = actividades.length + 1;
+      document.getElementById('modalSubproceso').value = '';
+      document.getElementById('modalActividad').value = '';
+      document.getElementById('modalResponsable').value = '';
+      document.getElementById('modalMesInicio').value = 'Febrero';
+      document.getElementById('modalMesFin').value = 'Diciembre';
+      document.getElementById('modalFechaInicio').value = '';
+      document.getElementById('modalFecha').value = new Date().toISOString().split('T')[0];
+      document.getElementById('modalPorcentaje').value = 0;
+      document.getElementById('modalAvanceTexto').value = '';
+      document.getElementById('modalObservacionesTexto').value = '';
+
+      modalInstance.show();
+    }
+
+    function guardarAvance() {
+      const subprocesoVal = document.getElementById('modalSubproceso').value.trim();
+      const actividadVal = document.getElementById('modalActividad').value.trim();
+
+      if (!subprocesoVal || !actividadVal) {
+        alert('Por favor complete los campos de Subproceso y Actividad.');
+        return;
+      }
+
+      const idVal = document.getElementById('modalId').value;
+      let posIngresada = parseInt(document.getElementById('modalPosicion').value) || (actividades.length + 1);
+      if (posIngresada < 1) posIngresada = 1;
+
+      if (idVal === '') {
+        let targetIndex = posIngresada - 1;
+        if (targetIndex > actividades.length) { targetIndex = actividades.length; }
+
+        const nuevaActividad = {
+          id: posIngresada,
+          subproceso: subprocesoVal,
+          actividad: actividadVal,
+          responsable: document.getElementById('modalResponsable').value.trim(),
+          mesInicio: document.getElementById('modalMesInicio').value,
+          mesFin: document.getElementById('modalMesFin').value,
+          fechaInicio: document.getElementById('modalFechaInicio').value,
+          fecha: document.getElementById('modalFecha').value,
+          porcentaje: parseInt(document.getElementById('modalPorcentaje').value) || 0,
+          avance: document.getElementById('modalAvanceTexto').value.trim(),
+          observaciones: document.getElementById('modalObservacionesTexto').value.trim()
+        };
+
+        actividades.splice(targetIndex, 0, nuevaActividad);
+        actividades.forEach((act, idx) => { act.id = idx + 1; });
+
+      } else {
+        const id = parseInt(idVal);
+        const indexActual = actividades.findIndex(a => a.id === id);
+
+        if (indexActual >= 0) {
+          const item = actividades[indexActual];
+          item.subproceso = subprocesoVal;
+          item.actividad = actividadVal;
+          item.responsable = document.getElementById('modalResponsable').value.trim();
+          item.mesInicio = document.getElementById('modalMesInicio').value;
+          item.mesFin = document.getElementById('modalMesFin').value;
+          item.fechaInicio = document.getElementById('modalFechaInicio').value;
+          item.fecha = document.getElementById('modalFecha').value;
+          item.porcentaje = parseInt(document.getElementById('modalPorcentaje').value) || 0;
+          item.avance = document.getElementById('modalAvanceTexto').value.trim();
+          item.observaciones = document.getElementById('modalObservacionesTexto').value.trim();
+
+          let targetIndex = posIngresada - 1;
+          if (targetIndex !== indexActual) {
+            if (targetIndex >= actividades.length) targetIndex = actividades.length - 1;
+            const [actExtraida] = actividades.splice(indexActual, 1);
+            actividades.splice(targetIndex, 0, actExtraida);
+            actividades.forEach((act, idx) => { act.id = idx + 1; });
+          }
+        }
+      }
+
+      guardarEnLocalStorage();
+      cargarSubprocesosEnSelect();
+      renderizarTabla();
+      modalInstance.hide();
+    }
+
+    function generarCopiaSeguridad() {
+      const jsonStr = JSON.stringify(actividades, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      
+      const fechaHoy = new Date().toISOString().split('T')[0];
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `copia_seguridad_sistema_seguimiento_${fechaHoy}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function restaurarCopiaSeguridad(event) {
+      const archivo = event.target.files[0];
+      if (!archivo) return;
+
+      const lector = new FileReader();
+      lector.onload = function(e) {
+        try {
+          const datosCargados = JSON.parse(e.target.result);
+          if (Array.isArray(datosCargados) && datosCargados.length > 0 && datosCargados[0].id && datosCargados[0].actividad) {
+            if (confirm(`Se han detectado ${datosCargados.length} registros en la copia. ¿Desea restaurarlos?`)) {
+              actividades = datosCargados;
+              guardarEnLocalStorage();
+              cargarSubprocesosEnSelect();
+              renderizarTabla();
+              alert('Restaurado con éxito.');
+            }
+          } else { alert('El archivo no es una copia válida.'); }
+        } catch (error) { alert('Error al cargar el archivo JSON.'); }
+        event.target.value = '';
+      };
+      lector.readAsText(archivo);
+    }
+
+    function exportarCSV() {
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFFID;Subproceso;Actividad;Responsable;Mes Inicio Prog;Mes Fin Prog;Observaciones;Fecha Real Inicio;Fecha Modificacion;Porcentaje;Avance\n";
+      actividades.forEach(a => {
+        let obs = (a.observaciones || '').replace(/"/g, '""');
+        let av = (a.avance || '').replace(/"/g, '""');
+        let resp = (a.responsable || '').replace(/"/g, '""');
+        let fila = `"${a.id}";"${(a.subproceso || '').replace(/"/g, '""')}";"${(a.actividad || '').replace(/"/g, '""')}";"${resp}";"${a.mesInicio || ''}";"${a.mesFin || ''}";"${obs}";"${a.fechaInicio || ''}";"${a.fecha || ''}";"${a.porcentaje}%";"${av}"`;
+        csvContent += fila + "\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "reporte_avance_actividades.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    /* INFORME GERENCIAL DINÁMICO EDITABLE SIN BORRAR DATOS */
+    function obtenerCategoriaEstructurada(nombreCompleto) {
+      const texto = (nombreCompleto || '').toUpperCase();
+      if (texto.includes('MCCO01.02.01')) {
+        return { codigo: 'MCCO01.02.01', nombre: 'SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL' };
+      } else if (texto.includes('MCCO01.02.03')) {
+        return { codigo: 'MCCO01.02.03', nombre: 'SUBPROCESO EVALUACIÓN Y SEGUIMIENTO' };
+      } else if (texto.includes('MCCO01.02.04')) {
+        return { codigo: 'MCCO01.02.04', nombre: 'SUBPROCESO RELACIÓN CON ENTES EXTERNOS DE CONTROL' };
+      } else if (texto.includes('PROCEDIMIENTO - ASESORIA') || texto.includes('ASESORIA Y ACOMPAÑAMIENTOS')) {
+        return { codigo: 'MCCO01.02.01', nombre: 'SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL' };
+      } else {
+        return { codigo: 'MCCO01.02', nombre: 'PROCESO CONTROL INTERNO A LA GESTIÓN' };
+      }
+    }
+
+    function generarInformeGerencial() {
+      const total = actividades.length;
+
+      const submap = {
+        'PROCESO CONTROL INTERNO A LA GESTIÓN': { suma: 0, count: 0, procs: {} },
+        'SUBPROCESO EVALUACIÓN Y SEGUIMIENTO': { suma: 0, count: 0, procs: {} },
+        'SUBPROCESO RELACIÓN CON ENTES EXTERNOS DE CONTROL': { suma: 0, count: 0, procs: {} },
+        'SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL': { suma: 0, count: 0, procs: {} }
+      };
+
+      actividades.forEach(a => {
+        const cat = obtenerCategoriaEstructurada(a.subproceso);
+        const subKey = cat.nombre;
+        if (submap[subKey]) {
+          submap[subKey].suma += (a.porcentaje || 0);
+          submap[subKey].count++;
+
+          const procName = a.subproceso.trim();
+          if (!submap[subKey].procs[procName]) {
+            submap[subKey].procs[procName] = { suma: 0, count: 0 };
+          }
+          submap[subKey].procs[procName].suma += (a.porcentaje || 0);
+          submap[subKey].procs[procName].count++;
+        }
+      });
+
+      const pGral = Math.round(submap['PROCESO CONTROL INTERNO A LA GESTIÓN'].count ? submap['PROCESO CONTROL INTERNO A LA GESTIÓN'].suma / submap['PROCESO CONTROL INTERNO A LA GESTIÓN'].count : 0);
+      const pEval = Math.round(submap['SUBPROCESO EVALUACIÓN Y SEGUIMIENTO'].count ? submap['SUBPROCESO EVALUACIÓN Y SEGUIMIENTO'].suma / submap['SUBPROCESO EVALUACIÓN Y SEGUIMIENTO'].count : 0);
+      const pEntes = Math.round(submap['SUBPROCESO RELACIÓN CON ENTES EXTERNOS DE CONTROL'].count ? submap['SUBPROCESO RELACIÓN CON ENTES EXTERNOS DE CONTROL'].suma / submap['SUBPROCESO RELACIÓN CON ENTES EXTERNOS DE CONTROL'].count : 0);
+      const pCult = Math.round(submap['SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL'].count ? submap['SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL'].suma / submap['SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL'].count : 0);
+      const pPlanTotal = Math.round(total ? actividades.reduce((acc, a) => acc + (a.porcentaje || 0), 0) / total : 0);
+
+      function construirBloqueSubproceso(keySubproceso, prefijoRemplazar) {
+        let ths = '';
+        let tds = '';
+        let labels = [];
+        let data = [];
+
+        Object.keys(submap[keySubproceso].procs).forEach(procKey => {
+          const pObj = submap[keySubproceso].procs[procKey];
+          const prom = Math.round(pObj.suma / pObj.count);
+          let nombreCorto = procKey.replace(prefijoRemplazar, '').replace('MCCO01.02.03.', '').replace('MCCO01.02.04.', '').replace('MCCO01.02.01.', '');
+          if (nombreCorto.length > 40) nombreCorto = nombreCorto.substring(0, 37) + '...';
+          
+          ths += `<th style="text-align: center; font-size: 9px; padding: 5px;">${nombreCorto}</th>`;
+          tds += `<td style="text-align: center; font-weight: bold; font-size: 11px; background: ${prom === 100 ? '#22c55e' : prom > 0 ? '#3b82f6' : '#ef4444'}; color: white;">${prom}%</td>`;
+          labels.push(nombreCorto);
+          data.push(prom);
+        });
+
+        return { ths, tds, labels, data };
+      }
+
+      const evalData = construirBloqueSubproceso('SUBPROCESO EVALUACIÓN Y SEGUIMIENTO', 'MCCO01.02.03 - ');
+      const cultData = construirBloqueSubproceso('SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL', 'MCCO01.02.01 - ');
+      const entesData = construirBloqueSubproceso('SUBPROCESO RELACIÓN CON ENTES EXTERNOS DE CONTROL', 'MCCO01.02.04 - ');
+
+      const listConclusionesHTML = (datosConfigInforme.conclusiones || []).map(c => `<li contenteditable="true">${c}</li>`).join('');
+      const listRecomendacionesHTML = (datosConfigInforme.recomendaciones || []).map(r => `<li contenteditable="true">${r}</li>`).join('');
+
+      const ventanaInforme = window.open('', '_blank');
+      const htmlInforme = `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <title>Informe Gerencial de Seguimiento al Plan de Trabajo</title>
+          <script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script>
+          <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 25px; color: #1e293b; font-size: 11px; background: #fff; }
+            .header-title { text-align: center; font-weight: bold; font-size: 15px; margin-bottom: 4px; text-transform: uppercase; color: #0f172a; }
+            .header-subtitle { text-align: center; font-weight: bold; font-size: 12px; margin-bottom: 12px; color: #334155; }
+            .corte-text { text-align: center; font-size: 10px; margin-bottom: 20px; font-style: italic; color: #64748b; }
+            
+            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+            th, td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; vertical-align: middle; }
+            .th-header { background-color: #3b82f6; color: white; font-weight: bold; text-align: center; text-transform: uppercase; font-size: 10px; }
+            
+            .chart-box { width: 100%; height: 210px; margin-bottom: 20px; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; background: #fafafa; }
+            .section-title { background-color: #1e3c72; color: white; padding: 6px 10px; font-weight: bold; font-size: 11px; text-transform: uppercase; margin-top: 22px; margin-bottom: 10px; border-radius: 4px; }
+            
+            .editable-box { 
+              background: #f8fafc; 
+              border: 1px dashed #3b82f6; 
+              padding: 10px 14px; 
+              margin-bottom: 20px; 
+              font-size: 11px; 
+              line-height: 1.5; 
+              color: #334155; 
+              border-radius: 4px;
+              outline: none;
+            }
+            .editable-box:focus { background: #ffffff; border: 1px solid #1e3c72; box-shadow: 0 0 5px rgba(30,60,114,0.2); }
+            
+            ol, ul { margin: 5px 0 15px 20px; padding: 0; }
+            li { margin-bottom: 6px; line-height: 1.4; outline: none; }
+            li:focus { background-color: #f1f5f9; }
+
+            .bar-actions { display: flex; gap: 10px; margin-bottom: 20px; }
+            .btn-action { background-color: #1e3c72; color: white; border: none; padding: 8px 16px; font-size: 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+            .btn-add { background-color: #10b981; color: white; border: none; padding: 4px 8px; font-size: 10px; border-radius: 4px; cursor: pointer; margin-left: 10px; }
+
+            @media print {
+              .bar-actions, .btn-add { display: none !important; }
+              .editable-box { border: none !important; background: transparent !important; padding: 0 !important; }
+              body { margin: 10px; }
+              .chart-box { height: 180px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="bar-actions">
+            <button class="btn-action" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>
+            <span style="font-size: 11px; color: #64748b; align-self: center;">💡 <strong>Tip:</strong> Puede editar cualquier texto del informe directamente en esta pantalla antes de imprimir.</span>
+          </div>
+
+          <div class="header-title">INFORME DE SEGUIMIENTO AL PLAN DETALLADO DE ACTUALIZACIÓN DOCUMENTAL</div>
+          <div class="header-subtitle">PROCESO CONTROL INTERNO A LA GESTIÓN</div>
+          <div class="corte-text">CORTE A ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()}<br>
+          (Porcentajes de avance calculados sobre las actividades programadas en el Plan de Trabajo)</div>
+
+          <!-- 1. AVANCE GENERAL DE TODO EL PLAN -->
+          <div class="section-title">1. SEGUIMIENTO AVANCE GENERAL</div>
+          <table>
+            <thead>
+              <tr class="th-header">
+                <th style="width: 20%; text-align: center;">PROCESO CONTROL INTERNO A LA GESTIÓN</th>
+                <th style="width: 20%; text-align: center;">SUBPROCESO EVALUACIÓN Y SEGUIMIENTO</th>
+                <th style="width: 20%; text-align: center;">SUBPROCESO RELACIÓN CON ENTES EXTERNOS DE CONTROL</th>
+                <th style="width: 20%; text-align: center;">SUBPROCESO FOMENTO CULTURA DEL CONTROL</th>
+                <th style="width: 20%; text-align: center;">PROMEDIO GENERAL DEL PLAN</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="text-align: center; font-weight: bold; background: ${pGral === 100 ? '#22c55e' : pGral > 0 ? '#3b82f6' : '#ef4444'}; color: white;">${pGral}%</td>
+                <td style="text-align: center; font-weight: bold; background: ${pEval === 100 ? '#22c55e' : pEval > 0 ? '#3b82f6' : '#ef4444'}; color: white;">${pEval}%</td>
+                <td style="text-align: center; font-weight: bold; background: ${pEntes === 100 ? '#22c55e' : pEntes > 0 ? '#3b82f6' : '#ef4444'}; color: white;">${pEntes}%</td>
+                <td style="text-align: center; font-weight: bold; background: ${pCult === 100 ? '#22c55e' : pCult > 0 ? '#3b82f6' : '#ef4444'}; color: white;">${pCult}%</td>
+                <td style="text-align: center; font-weight: bold; background: #1e3c72; color: white;">${pPlanTotal}%</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="chart-box">
+            <canvas id="chartAvanceGeneral"></canvas>
+          </div>
+
+          <div class="editable-box" contenteditable="true">
+            El proceso de Control Interno a la Gestión registra un avance global acumulado del <strong>${pPlanTotal}%</strong>. 
+            El resultado se compone del <strong>${pGral}%</strong> de cumplimiento en las tareas generales, un <strong>${pEval}%</strong> en Evaluación y Seguimiento, un <strong>${pCult}%</strong> en Fomento de la Cultura de Control y un <strong>${pEntes}%</strong> en el subproceso de Relación con Entes Externos de Control.
+          </div>
+
+          <!-- 2. SUBPROCESO EVALUACIÓN Y SEGUIMIENTO -->
+          <div class="section-title">2. SEGUIMIENTO AVANCE SUBPROCESO: EVALUACIÓN Y SEGUIMIENTO</div>
+          <table>
+            <thead>
+              <tr class="th-header">
+                ${evalData.ths}
+                <th style="text-align: center; font-size: 10px;">PROMEDIO SUBPROCESO</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                ${evalData.tds}
+                <td style="text-align: center; font-weight: bold; background: #1e3c72; color: white;">${pEval}%</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="chart-box">
+            <canvas id="chartAvanceEval"></canvas>
+          </div>
+
+          <div class="editable-box" contenteditable="true">
+            <strong>Análisis Subproceso Evaluación y Seguimiento:</strong> ${datosConfigInforme.analisisEval}
+          </div>
+
+          <!-- 3. SUBPROCESO FOMENTO DE LA CULTURA DE CONTROL -->
+          <div class="section-title">3. SEGUIMIENTO AVANCE SUBPROCESO: FOMENTO DE LA CULTURA DE CONTROL (ENFOQUE HACIA LA PREVENCIÓN)</div>
+          <table>
+            <thead>
+              <tr class="th-header">
+                ${cultData.ths}
+                <th style="text-align: center; font-size: 10px;">PROMEDIO SUBPROCESO</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                ${cultData.tds}
+                <td style="text-align: center; font-weight: bold; background: #1e3c72; color: white;">${pCult}%</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="chart-box">
+            <canvas id="chartAvanceCult"></canvas>
+          </div>
+
+          <div class="editable-box" contenteditable="true">
+            <strong>Análisis Subproceso Fomento de la Cultura de Control:</strong> ${datosConfigInforme.analisisCult}
+          </div>
+
+          <!-- 4. SUBPROCESO RELACIÓN CON ENTES EXTERNOS DE CONTROL -->
+          <div class="section-title">4. SEGUIMIENTO AVANCE SUBPROCESO: RELACIÓN CON ENTES EXTERNOS DE CONTROL</div>
+          <table>
+            <thead>
+              <tr class="th-header">
+                ${entesData.ths}
+                <th style="text-align: center; font-size: 10px;">PROMEDIO SUBPROCESO</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                ${entesData.tds}
+                <td style="text-align: center; font-weight: bold; background: #1e3c72; color: white;">${pEntes}%</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="chart-box">
+            <canvas id="chartAvanceEntes"></canvas>
+          </div>
+
+          <div class="editable-box" contenteditable="true">
+            <strong>Análisis Subproceso Relación con Entes Externos de Control:</strong> ${datosConfigInforme.analisisEntes}
+          </div>
+
+          <!-- CONCLUSIONES Y RECOMENDACIONES -->
+          <div class="section-title">
+            CONCLUSIONES
+            <button class="btn-add" onclick="agregarItem('listaConclusiones')">+ Agregar Conclusión</button>
+          </div>
+          <ol id="listaConclusiones">
+            ${listConclusionesHTML}
+          </ol>
+
+          <div class="section-title">
+            RECOMENDACIONES
+            <button class="btn-add" onclick="agregarItem('listaRecomendaciones')">+ Agregar Recomendación</button>
+          </div>
+          <ul id="listaRecomendaciones">
+            ${listRecomendacionesHTML}
+          </ul>
+
+          <div style="margin-top: 30px; border-top: 1px solid #cbd5e1; pt-2; text-align: right; font-size: 10px; color: #64748b;">
+            <strong>Fecha de Generación:</strong> ${new Date().toLocaleDateString('es-ES')} | Dirección de Control Interno & Equipo de Calidad
+          </div>
+
+          <script>
+            function agregarItem(idLista) {
+              const lista = document.getElementById(idLista);
+              const li = document.createElement('li');
+              li.contentEditable = "true";
+              li.innerHTML = "Nueva observación o ítem personalizable...";
+              lista.appendChild(li);
+              li.focus();
+            }
+
+            window.addEventListener('DOMContentLoaded', () => {
+              new Chart(document.getElementById('chartAvanceGeneral').getContext('2d'), {
+                type: 'bar',
+                data: {
+                  labels: ['PROCESO CONTROL INTERNO', 'EVALUACIÓN Y SEGUIMIENTO', 'CULTURA DEL CONTROL', 'ENTES EXTERNOS DE CONTROL'],
+                  datasets: [{
+                    label: '% Avance',
+                    data: [${pGral}, ${pEval}, ${pCult}, ${pEntes}],
+                    backgroundColor: ['#3b82f6', '#22c55e', '#f59e0b', '#06b6d4']
+                  }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } }
+              });
+
+              new Chart(document.getElementById('chartAvanceEval').getContext('2d'), {
+                type: 'bar',
+                data: {
+                  labels: ${JSON.stringify(evalData.labels)},
+                  datasets: [{ label: '% Avance', data: ${JSON.stringify(evalData.data)}, backgroundColor: '#3b82f6' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } }
+              });
+
+              new Chart(document.getElementById('chartAvanceCult').getContext('2d'), {
+                type: 'bar',
+                data: {
+                  labels: ${JSON.stringify(cultData.labels)},
+                  datasets: [{ label: '% Avance', data: ${JSON.stringify(cultData.data)}, backgroundColor: '#f59e0b' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } }
+              });
+
+              new Chart(document.getElementById('chartAvanceEntes').getContext('2d'), {
+                type: 'bar',
+                data: {
+                  labels: ${JSON.stringify(entesData.labels)},
+                  datasets: [{ label: '% Avance', data: ${JSON.stringify(entesData.data)}, backgroundColor: '#06b6d4' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } }
+              });
+            });
+          <\/script>
+        </body>
+        </html>
+      `;
+
+      ventanaInforme.document.write(htmlInforme);
+      ventanaInforme.document.close();
+    }
+  </script>
+</body>
+</html>
